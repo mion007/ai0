@@ -1,87 +1,92 @@
 import cv2
 
 def AuthenticateFace():
-    # Initialize the LBPH face recognizer and load the trained model
+    flag = ""
+    # Local Binary Patterns Histograms recognizer
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    recognizer.read('engine\\auth\\trainer\\trainer.yml')
-    
-    # Load the Haar Cascade classifier for face detection
+
+    # Load trained model
+    try:
+        recognizer.read('engine\\auth\\trainer\\trainer.yml')
+        print("Model loaded successfully.")
+    except cv2.error as e:
+        print("Error: Could not read the trained model. Ensure the model is trained and the path is correct.")
+        return -1  # Indicate failure to load model
+
     cascadePath = "engine\\auth\\haarcascade_frontalface_default.xml"
     faceCascade = cv2.CascadeClassifier(cascadePath)
-    
-    # Set font for displaying text on the image
+
+    # Font for displaying text
     font = cv2.FONT_HERSHEY_SIMPLEX
-    
-    # Define the list of names corresponding to the IDs used in training
-    names = ['', 'Digambar']  # Add more names as needed
-    
-    # Create a video capture object to capture video from the webcam
+
+    # Names corresponding to id (index 0 is empty as id starts from 1)
+    names = ['', 'Digambar']  # Add any other users here
+
+    # Initialize webcam
     cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    if not cam.isOpened():
+        print("Error: Could not open camera.")
+        return -1  # Indicate failure to open camera
+
     cam.set(3, 640)  # Set video frame width
     cam.set(4, 480)  # Set video frame height
-    
-    # Define minimum window size to be recognized as a face
+
+    # Define min window size to be recognized as a face
     minW = 0.1 * cam.get(3)
     minH = 0.1 * cam.get(4)
-    
-    recognized_flag = False  # Flag to indicate if a face is recognized
-    
+
+    print("Camera initialized. Please look at the camera.")
+
     while True:
-        # Read frames from the webcam
-        ret, img = cam.read()
+        ret, img = cam.read()  # Read frames from the camera
         if not ret:
-            print("Failed to capture image")
+            print("Error: Failed to capture image.")
             break
-        
-        # Convert the captured frame to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Detect faces in the grayscale image
+
+        # Convert to grayscale
+        converted_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Detect faces in the image
         faces = faceCascade.detectMultiScale(
-            gray,
+            converted_image,
             scaleFactor=1.2,
             minNeighbors=5,
             minSize=(int(minW), int(minH)),
         )
-        
+
         for (x, y, w, h) in faces:
-            # Draw a rectangle around the detected face
             cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            
-            # Predict the identity of the face
-            id, confidence = recognizer.predict(gray[y:y + h, x:x + w])
-            
-            # Check if confidence is less than 100 ==> "0" is a perfect match
-            if confidence < 100:
-                name = names[id]
-                confidence_text = "  {0}%".format(round(100 - confidence))
-                recognized_flag = True
+            id, accuracy = recognizer.predict(converted_image[y:y + h, x:x + w])
+
+            # Check if accuracy is greater than or equal to 55%
+            if accuracy < 45:  # 100 - 55 = 45
+                person_name = names[id]
+                accuracy_text = "  {0}%".format(round(100 - accuracy))
+                flag = 1
+                print(f"Recognized {person_name} with accuracy {accuracy_text}")
             else:
-                name = "unknown"
-                confidence_text = "  {0}%".format(round(100 - confidence))
-                recognized_flag = False
-            
-            # Display the name and confidence on the image
-            cv2.putText(img, str(name), (x + 5, y - 5), font, 1, (255, 255, 255), 2)
-            cv2.putText(img, str(confidence_text), (x + 5, y + h - 5), font, 1, (255, 255, 0), 1)
-        
-        # Display the frame with the detected face
+                person_name = "unknown"
+                accuracy_text = "  {0}%".format(round(100 - accuracy))
+                flag = 0
+                print(f"Unrecognized face with accuracy {accuracy_text}")
+
+            cv2.putText(img, str(person_name), (x + 5, y - 5), font, 1, (255, 255, 255), 2)
+            cv2.putText(img, str(accuracy_text), (x + 5, y + h - 5), font, 1, (255, 255, 0), 1)
+
         cv2.imshow('camera', img)
-        
-        # Wait for a key press
-        k = cv2.waitKey(10) & 0xff
-        if k == 27:  # Press 'ESC' to exit
+        if cv2.waitKey(10) & 0xff == 27 or flag == 1:  # Press 'ESC' to exit
             break
-        if recognized_flag:
-            break
-    
-    # Do a bit of cleanup
+
     cam.release()
     cv2.destroyAllWindows()
-    return recognized_flag
 
-# Call the function to authenticate face
-if AuthenticateFace():
-    print("Face recognized successfully.")
+    return flag
+
+# Example usage:
+result = AuthenticateFace()
+if result == 1:
+    print("Authentication successful.")
+elif result == 0:
+    print("Authentication failed.")
 else:
-    print("Face not recognized.")
+    print("An error occurred during the authentication process.")
