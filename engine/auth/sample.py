@@ -41,9 +41,8 @@ def capture_face_samples(user_id, user_name):
         if cv2.waitKey(100) & 0xff == 27:  # Press 'ESC' to exit
             break
 
-    cam.release()
-    cv2.destroyAllWindows()
-    print(f"Captured {sample_count} face samples for user {user_name}.")
+cam.release()
+cv2.destroyAllWindows()    print(f"Captured {sample_count} face samples for user {user_name}.")
 
 # Example usage:
 capture_face_samples(1, "Digambar")
